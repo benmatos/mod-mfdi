@@ -12,8 +12,8 @@ class MfdiDTO extends InfraDTO {
     }
 
     public function montar() {
-        $this->adicionarAtributo(InfraDTO::$PREFIXO_NUM, 'NumDocumento');
-        $this->adicionarAtributo(InfraDTO::$PREFIXO_STR, 'StrConteudoHtml');
-        $this->adicionarAtributo(InfraDTO::$PREFIXO_ARR, 'ArrCampos');
+        $this->adicionarAtributo(InfraDTO::$PREFIXO_NUM, 'Documento');
+        $this->adicionarAtributo(InfraDTO::$PREFIXO_STR, 'ConteudoHtml');
+        $this->adicionarAtributo(InfraDTO::$PREFIXO_ARR, 'Campos');
     }
 }

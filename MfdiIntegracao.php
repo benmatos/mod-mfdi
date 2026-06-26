@@ -61,7 +61,11 @@ class MfdiIntegracao extends SeiIntegracao {
 
     public function processarControlador($strAcao) {
         $arr = array('md_mfdi_formulario', 'md_mfdi_salvar');
-        return in_array($strAcao, $arr) ? dirname(__FILE__) . '/MfdiController.php' : null;
+        if (in_array($strAcao, $arr)) {
+            require_once dirname(__FILE__) . '/MfdiController.php';
+            return true;
+        }
+        return false;
     }
 
     /**

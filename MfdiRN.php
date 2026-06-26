@@ -64,7 +64,17 @@ class MfdiRN extends InfraRN {
         $dom = new DOMDocument();
         // Safe load of UTF-8:
         $strHtmlUtf8 = mb_convert_encoding($strHtml, 'HTML-ENTITIES', 'ISO-8859-1');
-        @$dom->loadHTML('<div>' . $strHtmlUtf8 . '</div>');
+        
+        $isFullHtml = (stripos($strHtml, '<html') !== false || stripos($strHtml, '<body') !== false || stripos($strHtml, '<!DOCTYPE') !== false);
+        
+        $oldState = libxml_use_internal_errors(true);
+        if ($isFullHtml) {
+            $dom->loadHTML($strHtmlUtf8);
+        } else {
+            $dom->loadHTML('<div>' . $strHtmlUtf8 . '</div>');
+        }
+        libxml_clear_errors();
+        libxml_use_internal_errors($oldState);
 
         $xpath = new DOMXPath($dom);
         $nodes = $xpath->query("//*[contains(@class, 'sei-field--')]");
@@ -138,7 +148,17 @@ class MfdiRN extends InfraRN {
 
         $dom = new DOMDocument();
         $strHtmlUtf8 = mb_convert_encoding($strHtml, 'HTML-ENTITIES', 'ISO-8859-1');
-        @$dom->loadHTML('<div>' . $strHtmlUtf8 . '</div>');
+        
+        $isFullHtml = (stripos($strHtml, '<html') !== false || stripos($strHtml, '<body') !== false || stripos($strHtml, '<!DOCTYPE') !== false);
+        
+        $oldState = libxml_use_internal_errors(true);
+        if ($isFullHtml) {
+            $dom->loadHTML($strHtmlUtf8);
+        } else {
+            $dom->loadHTML('<div>' . $strHtmlUtf8 . '</div>');
+        }
+        libxml_clear_errors();
+        libxml_use_internal_errors($oldState);
 
         $xpath = new DOMXPath($dom);
 
@@ -166,11 +186,15 @@ class MfdiRN extends InfraRN {
             }
         }
 
-        // Recupera o HTML
-        $wrapper = $dom->getElementsByTagName('body')->item(0)->firstChild;
-        $newHtmlUtf8 = '';
-        foreach ($wrapper->childNodes as $child) {
-            $newHtmlUtf8 .= $dom->saveHTML($child);
+        if ($isFullHtml) {
+            $newHtmlUtf8 = $dom->saveHTML();
+        } else {
+            // Recupera o HTML
+            $wrapper = $dom->getElementsByTagName('body')->item(0)->firstChild;
+            $newHtmlUtf8 = '';
+            foreach ($wrapper->childNodes as $child) {
+                $newHtmlUtf8 .= $dom->saveHTML($child);
+            }
         }
         
         return mb_convert_encoding($newHtmlUtf8, 'ISO-8859-1', 'UTF-8');
@@ -231,7 +255,6 @@ class MfdiRN extends InfraRN {
         $objDocumentoDTO->retDblIdDocumento();
         $objDocumentoDTO->retDblIdProcedimento();
         $objDocumentoDTO->retStrSinBloqueado();
-        $objDocumentoDTO->retStrSinAssinado();
         $objDocumentoDTO->retNumIdUnidadeGeradoraProtocolo();
         $objDocumentoDTO->setDblIdDocumento($numDocumento);
         
@@ -242,7 +265,14 @@ class MfdiRN extends InfraRN {
             throw new InfraException('Documento não encontrado.');
         }
         
-        if ($objDocumentoDTO->getStrSinAssinado() === 'S') {
+        // Verifica se o documento possui alguma assinatura
+        $objAssinaturaDTO = new AssinaturaDTO();
+        $objAssinaturaDTO->retNumIdAssinatura();
+        $objAssinaturaDTO->setDblIdDocumento($numDocumento);
+        $objAssinaturaDTO->setNumMaxRegistrosRetorno(1);
+        $objAssinaturaRN = new AssinaturaRN();
+        $arrObjAssinaturaDTO = $objAssinaturaRN->listarRN1323($objAssinaturaDTO);
+        if (count($arrObjAssinaturaDTO) > 0) {
             throw new InfraException('Documento já assinado.');
         }
         
@@ -258,7 +288,7 @@ class MfdiRN extends InfraRN {
         $objAtividadeDTO->setDthConclusao(null);
         
         $objAtividadeRN = new AtividadeRN();
-        if ($objAtividadeRN->contar($objAtividadeDTO) == 0) {
+        if ($objAtividadeRN->contarRN0035($objAtividadeDTO) == 0) {
             throw new InfraException('Documento em trâmite em outra unidade ou concluído.');
         }
     }

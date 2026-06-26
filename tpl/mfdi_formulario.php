@@ -4,109 +4,157 @@
  * MGI - Ministério da Gestão e da Inovação em Serviços Públicos
  */
 $p = PaginaSEI::getInstance();
+$p->setTipoPagina(InfraPagina::$TIPO_PAGINA_SIMPLES);
 
-$strHtml = '';
+$p->montarDocType();
+$p->abrirHtml();
+$p->abrirHead();
+$p->montarMeta();
+$p->montarTitle($p->getStrNomeSistema() . ' - Preencher Formulário Dinâmico');
+$p->montarStyle();
 
-// Alerta de erros
-$strHtml .= '<div id="divErros" style="display:none; margin-bottom:15px; padding:10px; background-color:#f8d7da; border:1px solid #f5c6cb; color:#721c24; border-radius:4px; font-weight:bold;"></div>';
+$p->abrirStyle();
+?>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-$strHtml .= '<form id="frmMfdi" method="POST" onsubmit="salvarFormulario(event);">';
-$strHtml .= '<input type="hidden" id="numDocumento" value="' . htmlspecialchars($objDTO->getNumDocumento()) . '" />';
-
-$strHtml .= '<table class="infraTable" width="100%">';
-
-$arrCampos = $objDTO->getArrCampos();
-if (empty($arrCampos)) {
-    $strHtml .= '<tr><td colspan="2" align="center" style="padding: 20px; font-style: italic; color: #555;">Este documento não possui campos anotados para o formulário dinâmico (atributo data-sei-field).</td></tr>';
-} else {
-    foreach ($arrCampos as $campo) {
-        $field = htmlspecialchars($campo['field']);
-        $label = htmlspecialchars($campo['label']);
-        $type = htmlspecialchars($campo['type']);
-        $required = $campo['required'];
-        $value = htmlspecialchars($campo['value']);
-        
-        $strRequiredLabel = $required ? ' <span style="color:red; font-weight:bold;">*</span>' : '';
-        $strRequiredAttr = $required ? 'required="required"' : '';
-        
-        $strHtml .= '<tr>';
-        $strHtml .= '<td class="infraTdRotulo" width="30%" valign="top" style="padding:8px; font-weight:bold;">' . $label . $strRequiredLabel . ':</td>';
-        $strHtml .= '<td style="padding:8px;">';
-        
-        $inputClass = 'infraInput';
-        $inputStyle = 'width: 95%; box-sizing: border-box; padding: 5px; font-size: 13px;';
-        
-        switch ($type) {
-            case 'textarea':
-                $strHtml .= '<textarea class="' . $inputClass . ' mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" style="' . $inputStyle . ' height:100px;" ' . $strRequiredAttr . '>' . $value . '</textarea>';
-                break;
-                
-            case 'boolean':
-                $strHtml .= '<select class="' . $inputClass . ' mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" style="width: 150px; padding: 5px; font-size: 13px;" ' . $strRequiredAttr . '>';
-                $strHtml .= '<option value=""' . ($value === '' ? ' selected' : '') . '>Selecione...</option>';
-                $strHtml .= '<option value="Sim"' . (strtolower($value) === 'sim' || strtolower($value) === 's' ? ' selected' : '') . '>Sim</option>';
-                $strHtml .= '<option value="Não"' . (strtolower($value) === 'não' || strtolower($value) === 'nao' || strtolower($value) === 'n' ? ' selected' : '') . '>Não</option>';
-                $strHtml .= '</select>';
-                break;
-                
-            case 'lista':
-                $arrOptions = isset($campo['options_array']) ? $campo['options_array'] : array();
-                if (!empty($arrOptions)) {
-                    $strHtml .= '<select class="' . $inputClass . ' mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" style="' . $inputStyle . '" ' . $strRequiredAttr . '>';
-                    $strHtml .= '<option value=""' . ($value === '' ? ' selected' : '') . '>Selecione...</option>';
-                    foreach ($arrOptions as $opt) {
-                        $optValue = htmlspecialchars($opt['value']);
-                        $optLabel = htmlspecialchars($opt['label']);
-                        $strHtml .= '<option value="' . $optValue . '"' . ($value === $opt['value'] || $value === $opt['label'] ? ' selected' : '') . '>' . $optLabel . '</option>';
-                    }
-                    $strHtml .= '</select>';
-                } else {
-                    $strHtml .= '<input type="text" class="' . $inputClass . ' mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" value="' . $value . '" style="' . $inputStyle . '" ' . $strRequiredAttr . ' />';
-                }
-                break;
-                
-            case 'numero':
-                $strHtml .= '<input type="number" class="' . $inputClass . ' mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" value="' . $value . '" style="' . $inputStyle . '" ' . $strRequiredAttr . ' />';
-                break;
-                
-            case 'moeda':
-                $strHtml .= '<input type="text" class="' . $inputClass . ' mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" value="' . $value . '" placeholder="0,00" style="' . $inputStyle . '" ' . $strRequiredAttr . ' oninput="mascaraMoeda(this);" />';
-                break;
-                
-            case 'data':
-                // SEI date inputs can be simple or standard HTML5 date inputs
-                $strHtml .= '<input type="date" class="' . $inputClass . ' mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" value="' . $value . '" style="width: 150px; padding: 5px; font-size: 13px;" ' . $strRequiredAttr . ' />';
-                break;
-                
-            case 'texto':
-            default:
-                $strHtml .= '<input type="text" class="' . $inputClass . ' mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" value="' . $value . '" style="' . $inputStyle . '" ' . $strRequiredAttr . ' />';
-                break;
-        }
-        
-        $strHtml .= '</td>';
-        $strHtml .= '</tr>';
-    }
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    background-color: #f8fafc !important;
+    color: #1e293b !important;
+    margin: 0;
+    padding: 20px;
 }
 
-$strHtml .= '</table>';
-
-$strLinkRetorno = SessaoSEI::getInstance()->assinarLink(
-    'controlador.php?acao=documento_visualizar&id_procedimento=' . $idProcedimento . '&id_documento=' . $objDTO->getNumDocumento()
-);
-
-$strHtml .= '<div style="margin-top:25px; text-align:center; padding-bottom: 20px;">';
-if (!empty($arrCampos)) {
-    $strHtml .= '<button type="submit" id="btnSalvar" class="infraButton">Salvar</button> ';
+.mfdi-container {
+    max-width: 750px;
+    margin: 20px auto;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    border: 1px solid #e2e8f0;
+    padding: 30px;
 }
-$strHtml .= '<button type="button" class="infraButton" onclick="window.location.href=\'' . $strLinkRetorno . '\';">Cancelar</button>';
-$strHtml .= '</div>';
-$strHtml .= '</form>';
 
-$strHtml .= '
-<script type="text/javascript">
-const urlRetorno = "' . $strLinkRetorno . '";
+.mfdi-header {
+    margin-bottom: 25px;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 15px;
+}
 
+.mfdi-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0 0 8px 0;
+}
+
+.mfdi-subtitle {
+    font-size: 13px;
+    color: #64748b;
+    margin: 0;
+}
+
+.mfdi-form-group {
+    margin-bottom: 20px;
+}
+
+.mfdi-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #334155;
+    margin-bottom: 6px;
+}
+
+.mfdi-label-required {
+    color: #ef4444;
+    margin-left: 2px;
+}
+
+.mfdi-input-text, .mfdi-textarea, .mfdi-select {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background-color: #ffffff;
+    color: #0f172a;
+    font-family: inherit;
+    font-size: 14px;
+    transition: all 0.2s ease-in-out;
+    box-sizing: border-box;
+}
+
+.mfdi-input-text:focus, .mfdi-textarea:focus, .mfdi-select:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    outline: none;
+}
+
+.mfdi-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.mfdi-btn-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.mfdi-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    border: none;
+    font-family: inherit;
+}
+
+.mfdi-btn-primary {
+    background-color: #4f46e5;
+    color: #ffffff;
+}
+
+.mfdi-btn-primary:hover {
+    background-color: #4338ca;
+}
+
+.mfdi-btn-secondary {
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+
+.mfdi-btn-secondary:hover {
+    background-color: #e2e8f0;
+}
+
+.mfdi-alert-error {
+    background-color: #fef2f2;
+    border: 1px solid #fca5a5;
+    color: #991b1b;
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 14px;
+    margin-bottom: 25px;
+    font-weight: 500;
+    display: none;
+}
+<?php
+$p->fecharStyle();
+
+$p->montarJavaScript();
+$p->abrirJavaScript();
+?>
 function mascaraMoeda(campo) {
     let valor = campo.value;
     valor = valor.replace(/\D/g, "");
@@ -119,6 +167,108 @@ function mascaraMoeda(campo) {
     valor = valor.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
     campo.value = valor;
 }
+<?php
+$p->fecharJavaScript();
+$p->fecharHead();
+$p->abrirBody('Preencher Formulário Dinâmico', '');
+
+$strLinkRetorno = SessaoSEI::getInstance()->assinarLink(
+    'controlador.php?acao=documento_visualizar&id_procedimento=' . $idProcedimento . '&id_documento=' . $objDTO->getNumDocumento()
+);
+?>
+
+<div class="mfdi-container">
+    <div class="mfdi-header">
+        <h1 class="mfdi-title">Formulário de Preenchimento</h1>
+        <p class="mfdi-subtitle">Insira as informações nos campos dinâmicos mapeados no documento.</p>
+    </div>
+
+    <div id="divErros" class="mfdi-alert-error"></div>
+
+    <form id="frmMfdi" method="POST" onsubmit="salvarFormulario(event);">
+        <input type="hidden" id="numDocumento" value="<?php echo htmlspecialchars($objDTO->getNumDocumento()); ?>" />
+
+        <?php
+        $arrCampos = $objDTO->getArrCampos();
+        if (empty($arrCampos)) {
+            echo '<div style="padding: 30px; text-align: center; font-style: italic; color: #64748b; background-color: #f8fafc; border-radius: 8px;">Este documento não possui campos anotados para o formulário dinâmico (com a classe class="sei-field--...").</div>';
+        } else {
+            foreach ($arrCampos as $campo) {
+                $field = htmlspecialchars($campo['field']);
+                $label = htmlspecialchars($campo['label']);
+                $type = htmlspecialchars($campo['type']);
+                $required = $campo['required'];
+                $value = htmlspecialchars($campo['value']);
+                
+                $strRequiredLabel = $required ? '<span class="mfdi-label-required">*</span>' : '';
+                $strRequiredAttr = $required ? 'required="required"' : '';
+                
+                echo '<div class="mfdi-form-group">';
+                echo '<label for="field_' . $field . '" class="mfdi-label">' . $label . $strRequiredLabel . '</label>';
+                
+                switch ($type) {
+                    case 'textarea':
+                        echo '<textarea id="field_' . $field . '" class="mfdi-textarea mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" ' . $strRequiredAttr . '>' . $value . '</textarea>';
+                        break;
+                        
+                    case 'boolean':
+                        echo '<select id="field_' . $field . '" class="mfdi-select mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" ' . $strRequiredAttr . '>';
+                        echo '<option value=""' . ($value === '' ? ' selected' : '') . '>Selecione...</option>';
+                        echo '<option value="Sim"' . (strtolower($value) === 'sim' || strtolower($value) === 's' ? ' selected' : '') . '>Sim</option>';
+                        echo '<option value="Não"' . (strtolower($value) === 'não' || strtolower($value) === 'nao' || strtolower($value) === 'n' ? ' selected' : '') . '>Não</option>';
+                        echo '</select>';
+                        break;
+                        
+                    case 'lista':
+                        $arrOptions = isset($campo['options_array']) ? $campo['options_array'] : array();
+                        if (!empty($arrOptions)) {
+                            echo '<select id="field_' . $field . '" class="mfdi-select mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" ' . $strRequiredAttr . '>';
+                            echo '<option value=""' . ($value === '' ? ' selected' : '') . '>Selecione...</option>';
+                            foreach ($arrOptions as $opt) {
+                                $optValue = htmlspecialchars($opt['value']);
+                                $optLabel = htmlspecialchars($opt['label']);
+                                echo '<option value="' . $optValue . '"' . ($value === $opt['value'] || $value === $opt['label'] ? ' selected' : '') . '>' . $optLabel . '</option>';
+                            }
+                            echo '</select>';
+                        } else {
+                            echo '<input type="text" id="field_' . $field . '" class="mfdi-input-text mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" value="' . $value . '" ' . $strRequiredAttr . ' />';
+                        }
+                        break;
+                        
+                    case 'numero':
+                        echo '<input type="number" id="field_' . $field . '" class="mfdi-input-text mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" value="' . $value . '" ' . $strRequiredAttr . ' />';
+                        break;
+                        
+                    case 'moeda':
+                        echo '<input type="text" id="field_' . $field . '" class="mfdi-input-text mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" value="' . $value . '" placeholder="0,00" ' . $strRequiredAttr . ' oninput="mascaraMoeda(this);" />';
+                        break;
+                        
+                    case 'data':
+                        echo '<input type="date" id="field_' . $field . '" class="mfdi-input-text mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" value="' . $value . '" style="width: 200px;" ' . $strRequiredAttr . ' />';
+                        break;
+                        
+                    case 'texto':
+                    default:
+                        echo '<input type="text" id="field_' . $field . '" class="mfdi-input-text mfdi-input" data-field="' . $field . '" data-label="' . $label . '" data-type="' . $type . '" data-required="' . ($required ? 'true' : 'false') . '" value="' . $value . '" ' . $strRequiredAttr . ' />';
+                        break;
+                }
+                
+                echo '</div>';
+            }
+        }
+        ?>
+
+        <div class="mfdi-btn-container">
+            <?php if (!empty($arrCampos)) { ?>
+                <button type="submit" id="btnSalvar" class="mfdi-btn mfdi-btn-primary">Salvar</button>
+            <?php } ?>
+            <button type="button" class="mfdi-btn mfdi-btn-secondary" onclick="window.location.href='<?php echo $strLinkRetorno; ?>';">Cancelar</button>
+        </div>
+    </form>
+</div>
+
+<script type="text/javascript">
+const urlRetorno = "<?php echo $strLinkRetorno; ?>";
 
 function salvarFormulario(event) {
     event.preventDefault();
@@ -175,7 +325,6 @@ function salvarFormulario(event) {
                 btnSalvar.innerHTML = "Salvar";
             }
             divErros.style.display = "block";
-            // Exibe a lista de validações se for array, ou string de erro
             if (result.body.erro) {
                 divErros.innerHTML = result.body.erro;
             } else {
@@ -193,6 +342,8 @@ function salvarFormulario(event) {
     });
 }
 </script>
-';
 
-$p->montarDocumento('Preencher Formulário Dinâmico', $strHtml, 'md_mfdi_formulario');
+<?php
+$p->fecharBody();
+$p->fecharHtml();
+?>
