@@ -7,21 +7,34 @@
 class MfdiBD extends InfraBD {
 
     /**
-     * Consulta o conteúdo HTML de um documento interno do SEI utilizando o EditorRN.
+     * Consulta o conteúdo HTML da seção principal de um documento interno do SEI.
      * @param float $numDocumento
      * @return string
      */
     public function consultarConteudoDocumento($numDocumento) {
-        $objEditorDTO = new EditorDTO();
-        $objEditorDTO->setDblIdDocumento($numDocumento);
-        $objEditorDTO->setNumIdBaseConhecimento(null);
-        $objEditorDTO->setStrSinCabecalho('S');
-        $objEditorDTO->setStrSinRodape('S');
-        $objEditorDTO->setStrSinCarimboPublicacao('N');
-        $objEditorDTO->setStrSinIdentificacaoVersao('N');
+        $objVersaoSecaoDocumentoDTO = new VersaoSecaoDocumentoDTO();
+        $objVersaoSecaoDocumentoDTO->retStrConteudo();
+        $objVersaoSecaoDocumentoDTO->retStrSinPrincipalSecaoDocumento();
+        $objVersaoSecaoDocumentoDTO->setDblIdDocumentoSecaoDocumento($numDocumento);
+        $objVersaoSecaoDocumentoDTO->setStrSinUltima('S');
+        $objVersaoSecaoDocumentoDTO->setOrdNumOrdemSecaoDocumento(InfraDTO::$TIPO_ORDENACAO_ASC);
 
-        $objEditorRN = new EditorRN();
-        return $objEditorRN->consultarHtmlVersao($objEditorDTO);
+        $objVersaoSecaoDocumentoRN = new VersaoSecaoDocumentoRN();
+        $arrObjVersaoSecaoDocumentoDTO = $objVersaoSecaoDocumentoRN->listar($objVersaoSecaoDocumentoDTO);
+
+        if (empty($arrObjVersaoSecaoDocumentoDTO)) {
+            return '';
+        }
+
+        // Encontrar a seção principal (corpo editável do documento)
+        foreach ($arrObjVersaoSecaoDocumentoDTO as $objVersaoSecaoDTO) {
+            if ($objVersaoSecaoDTO->getStrSinPrincipalSecaoDocumento() === 'S') {
+                return $objVersaoSecaoDTO->getStrConteudo();
+            }
+        }
+
+        // Fallback: retorna o conteúdo da primeira seção
+        return $arrObjVersaoSecaoDocumentoDTO[0]->getStrConteudo();
     }
 
     /**
@@ -36,6 +49,9 @@ class MfdiBD extends InfraBD {
         $objVersaoSecaoDocumentoDTO->retStrConteudo();
         $objVersaoSecaoDocumentoDTO->retNumVersao();
         $objVersaoSecaoDocumentoDTO->retNumIdSecaoDocumento();
+        $objVersaoSecaoDocumentoDTO->retStrSinPrincipalSecaoDocumento();
+        $objVersaoSecaoDocumentoDTO->retStrSinSomenteLeituraSecaoDocumento();
+        
         $objVersaoSecaoDocumentoDTO->setDblIdDocumentoSecaoDocumento($numDocumento);
         $objVersaoSecaoDocumentoDTO->setNumIdBaseConhecimentoSecaoDocumento(null);
         $objVersaoSecaoDocumentoDTO->setStrSinUltima('S');
@@ -48,21 +64,40 @@ class MfdiBD extends InfraBD {
             throw new InfraException('Nenhuma seção encontrada para o documento.');
         }
 
-        // 2. Se o documento tiver apenas 1 seção (caso padrão), atualizamos o conteúdo dessa única seção com todo o HTML preenchido
-        // Caso possua múltiplas seções, atualizamos a primeira seção e deixamos as demais vazias para manter o conteúdo concentrado nela,
-        // ou atualizamos conforme a estrutura. Para o MVP de formulários dinâmicos integrados, concentrar na primeira seção garante consistência.
+        // 2. Montar as seções atualizadas
         $arrObjSecaoDocumentoDTO = array();
+        
+        // Identificar se existe uma seção principal para atualizar
+        $hasPrincipal = false;
+        foreach ($arrObjVersaoSecaoDocumentoDTO as $objVersaoSecaoDTO) {
+            if ($objVersaoSecaoDTO->getStrSinPrincipalSecaoDocumento() === 'S') {
+                $hasPrincipal = true;
+                break;
+            }
+        }
+        
         $isFirst = true;
         foreach ($arrObjVersaoSecaoDocumentoDTO as $objVersaoSecaoDTO) {
             $objSecaoDTO = new SecaoDocumentoDTO();
             $objSecaoDTO->setNumIdSecaoModelo($objVersaoSecaoDTO->getNumIdSecaoModeloSecaoDocumento());
             $objSecaoDTO->setNumIdSecaoDocumento($objVersaoSecaoDTO->getNumIdSecaoDocumento());
             
-            if ($isFirst) {
-                $objSecaoDTO->setStrConteudo($strHtml);
-                $isFirst = false;
+            // Decidir qual conteúdo aplicar para esta seção
+            if ($hasPrincipal) {
+                // Se existe uma seção principal, atualiza somente ela
+                if ($objVersaoSecaoDTO->getStrSinPrincipalSecaoDocumento() === 'S') {
+                    $objSecaoDTO->setStrConteudo($strHtml);
+                } else {
+                    $objSecaoDTO->setStrConteudo($objVersaoSecaoDTO->getStrConteudo());
+                }
             } else {
-                $objSecaoDTO->setStrConteudo(''); // Zera as demais seções para evitar duplicação ou conflitos
+                // Fallback: se não há seção principal, atualiza a primeira seção
+                if ($isFirst) {
+                    $objSecaoDTO->setStrConteudo($strHtml);
+                    $isFirst = false;
+                } else {
+                    $objSecaoDTO->setStrConteudo($objVersaoSecaoDTO->getStrConteudo());
+                }
             }
             $arrObjSecaoDocumentoDTO[] = $objSecaoDTO;
         }
