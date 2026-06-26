@@ -25,6 +25,20 @@ body {
     padding: 20px;
 }
 
+/* Hide SEI side menu and top header bars */
+#divInfraBarraTribunal,
+#divInfraBarraSistema,
+#divInfraBarraAcesso,
+#divInfraAreaTelaE {
+    display: none !important;
+}
+
+#divInfraAreaTelaD {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
 .mfdi-container {
     max-width: 750px;
     margin: 20px auto;
@@ -178,11 +192,6 @@ $strLinkRetorno = SessaoSEI::getInstance()->assinarLink(
 ?>
 
 <div class="mfdi-container">
-    <div class="mfdi-header">
-        <h1 class="mfdi-title">Formulário de Preenchimento</h1>
-        <p class="mfdi-subtitle">Insira as informações nos campos dinâmicos mapeados no documento.</p>
-    </div>
-
     <div id="divErros" class="mfdi-alert-error"></div>
 
     <form id="frmMfdi" method="POST" onsubmit="salvarFormulario(event);">
