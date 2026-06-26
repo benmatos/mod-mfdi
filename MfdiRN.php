@@ -7,6 +7,8 @@
 require_once dirname(__FILE__) . '/MfdiDTO.php';
 require_once dirname(__FILE__) . '/MfdiBD.php';
 
+
+
 class MfdiRN extends InfraRN {
 
     protected function inicializarObjInfraIBanco() {
@@ -62,8 +64,12 @@ class MfdiRN extends InfraRN {
         }
 
         $dom = new DOMDocument();
-        // Safe load of UTF-8:
-        $strHtmlUtf8 = mb_convert_encoding($strHtml, 'HTML-ENTITIES', 'ISO-8859-1');
+        // Detect encoding to handle both UTF-8 and ISO-8859-1 installations
+        $encoding = mb_detect_encoding($strHtml, array('UTF-8', 'ISO-8859-1'), true);
+        if (!$encoding) {
+            $encoding = 'UTF-8';
+        }
+        $strHtmlUtf8 = mb_convert_encoding($strHtml, 'HTML-ENTITIES', $encoding);
         
         $isFullHtml = (stripos($strHtml, '<html') !== false || stripos($strHtml, '<body') !== false || stripos($strHtml, '<!DOCTYPE') !== false);
         
@@ -115,7 +121,17 @@ class MfdiRN extends InfraRN {
             // Humanização do nome do campo (Opção A)
             $label = str_replace('_', ' ', ucwords($field));
             
-            $value = trim($node->nodeValue);
+            $value = $node->nodeValue;
+            // Substitui non-breaking spaces (\xc2\xa0) e entidades &nbsp; por espaço simples para o trim remover
+            $value = str_replace(array("\xc2\xa0", "&nbsp;"), ' ', $value);
+            $value = trim($value);
+            
+            if ($encoding !== 'UTF-8') {
+                $value = mb_convert_encoding($value, $encoding, 'UTF-8');
+                if (!empty($options)) {
+                    $options = mb_convert_encoding($options, $encoding, 'UTF-8');
+                }
+            }
             
             $arrCampos[] = array(
                 'field' => $field,
@@ -147,7 +163,12 @@ class MfdiRN extends InfraRN {
         }
 
         $dom = new DOMDocument();
-        $strHtmlUtf8 = mb_convert_encoding($strHtml, 'HTML-ENTITIES', 'ISO-8859-1');
+        // Detect encoding to handle both UTF-8 and ISO-8859-1 installations
+        $encoding = mb_detect_encoding($strHtml, array('UTF-8', 'ISO-8859-1'), true);
+        if (!$encoding) {
+            $encoding = 'UTF-8';
+        }
+        $strHtmlUtf8 = mb_convert_encoding($strHtml, 'HTML-ENTITIES', $encoding);
         
         $isFullHtml = (stripos($strHtml, '<html') !== false || stripos($strHtml, '<body') !== false || stripos($strHtml, '<!DOCTYPE') !== false);
         
@@ -197,7 +218,7 @@ class MfdiRN extends InfraRN {
             }
         }
         
-        return mb_convert_encoding($newHtmlUtf8, 'ISO-8859-1', 'UTF-8');
+        return mb_convert_encoding($newHtmlUtf8, $encoding, 'UTF-8');
     }
 
     /**
@@ -305,8 +326,6 @@ class MfdiRN extends InfraRN {
                 $objInfraException->adicionarValidacao('O campo "' . $campo['label'] . '" é obrigatório.');
             }
         }
-        if ($objInfraException->contar() > 0) {
-            throw $objInfraException;
-        }
+        $objInfraException->lancarValidacoes();
     }
 }

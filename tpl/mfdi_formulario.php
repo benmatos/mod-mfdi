@@ -316,7 +316,7 @@ function salvarFormulario(event) {
         formData.append("campos[" + field + "][value]", campos[field].value);
     }
     
-    fetch("controlador.php", {
+    fetch(window.location.href, {
         method: "POST",
         body: formData
     })

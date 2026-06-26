@@ -74,6 +74,14 @@ class MfdiBD extends InfraBD {
         $objEditorDTO->setArrObjSecaoDocumentoDTO($arrObjSecaoDocumentoDTO);
 
         $objEditorRN = new EditorRN();
-        $objEditorRN->adicionarVersao($objEditorDTO);
+        
+        require_once dirname(__FILE__) . '/../../FeedSEIProtocolos.php';
+        $bolIgnorarOriginal = FeedSEIProtocolos::getInstance()->isBolIgnorarFeeds();
+        FeedSEIProtocolos::getInstance()->setBolIgnorarFeeds(true);
+        try {
+            $objEditorRN->adicionarVersao($objEditorDTO);
+        } finally {
+            FeedSEIProtocolos::getInstance()->setBolIgnorarFeeds($bolIgnorarOriginal);
+        }
     }
 }

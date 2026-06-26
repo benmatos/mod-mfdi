@@ -19,71 +19,73 @@ try {
         case 'md_mfdi_formulario':
             SessaoSEI::getInstance()->verificarPermissao('md_mfdi_formulario');
             
-            $numDocumento = $_GET['id_documento'];
+            $numDocumento = isset($_GET['id_documento']) ? $_GET['id_documento'] : (isset($_POST['numDocumento']) ? $_POST['numDocumento'] : null);
             if (InfraString::isBolVazia($numDocumento)) {
                 throw new InfraException('Identificador do documento não fornecido.');
             }
             
             $idProcedimento = isset($_GET['id_procedimento']) ? $_GET['id_procedimento'] : '';
             
-            $objDTO = new MfdiDTO();
-            $objDTO->setNumDocumento($numDocumento);
-            
-            $objRN = new MfdiRN();
-            // Executado de forma controlada via InfraRN
-            $objDTO = $objRN->carregarFormulario($objDTO);
-            
-            include dirname(__FILE__) . '/tpl/mfdi_formulario.php';
-            break;
-            
-        case 'md_mfdi_salvar':
-            SessaoSEI::getInstance()->verificarPermissao('md_mfdi_formulario');
-            
-            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-                throw new InfraException('Método de requisição inválido.');
-            }
-            
-            $numDocumento = $_POST['numDocumento'];
-            $arrCamposPost = $_POST['campos'];
-            
-            if (InfraString::isBolVazia($numDocumento)) {
-                throw new InfraException('Identificador do documento não fornecido.');
-            }
-            
-            $arrCampos = array();
-            if (is_array($arrCamposPost)) {
-                foreach ($arrCamposPost as $field => $data) {
-                    $arrCampos[] = array(
-                        'field' => $field,
-                        'label' => $data['label'],
-                        'type' => $data['type'],
-                        'required' => $data['required'] === 'true' || $data['required'] === '1' || $data['required'] === true,
-                        'value' => $data['value']
-                    );
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $arrCamposPost = $_POST['campos'];
+                
+                $arrCampos = array();
+                if (is_array($arrCamposPost)) {
+                    foreach ($arrCamposPost as $field => $data) {
+                        $arrCampos[] = array(
+                            'field' => $field,
+                            'label' => $data['label'],
+                            'type' => $data['type'],
+                            'required' => $data['required'] === 'true' || $data['required'] === '1' || $data['required'] === true,
+                            'value' => $data['value']
+                        );
+                    }
                 }
+                
+                $objDTO = new MfdiDTO();
+                $objDTO->setNumDocumento($numDocumento);
+                $objDTO->setArrCampos($arrCampos);
+                
+                $objRN = new MfdiRN();
+                // Executado de forma controlada via InfraRN
+                $objRN->salvarFormulario($objDTO);
+                
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(array('sucesso' => true));
+                exit;
+            } else {
+                $objDTO = new MfdiDTO();
+                $objDTO->setNumDocumento($numDocumento);
+                
+                $objRN = new MfdiRN();
+                // Executado de forma controlada via InfraRN
+                $objDTO = $objRN->carregarFormulario($objDTO);
+                
+                include dirname(__FILE__) . '/tpl/mfdi_formulario.php';
             }
-            
-            $objDTO = new MfdiDTO();
-            $objDTO->setNumDocumento($numDocumento);
-            $objDTO->setArrCampos($arrCampos);
-            
-            $objRN = new MfdiRN();
-            // Executado de forma controlada via InfraRN
-            $objRN->salvarFormulario($objDTO);
-            
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(array('sucesso' => true));
-            exit;
+            break;
             
         default:
             throw new InfraException('Ação "' . $strAcao . '" não reconhecida no módulo MFDI.');
     }
     
-} catch (Exception $e) {
-    if (isset($strAcao) && $strAcao === 'md_mfdi_salvar') {
+} catch (Throwable $e) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Content-Type: application/json; charset=utf-8');
         http_response_code(400);
-        echo json_encode(array('sucesso' => false, 'erro' => $e->getMessage()));
+        
+        $strErro = $e->getMessage();
+        if ($e instanceof InfraException && $e->getArrObjInfraValidacao() !== null) {
+            $arrMsgs = array();
+            foreach ($e->getArrObjInfraValidacao() as $objValidacao) {
+                $arrMsgs[] = $objValidacao->getStrDescricao();
+            }
+            if (!empty($arrMsgs)) {
+                $strErro = implode("\n", $arrMsgs);
+            }
+        }
+        
+        echo json_encode(array('sucesso' => false, 'erro' => $strErro));
         exit;
     }
     PaginaSEI::getInstance()->processarExcecao($e);
